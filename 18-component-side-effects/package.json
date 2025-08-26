@@ -1,7 +1,7 @@
 {
   "private": true,
   "type": "module",
-  "name": "18-component-side-effects",
+  "name": "18-componet-side-effects",
   "description": "리액트 템플릿 (Bun + Vite)",
   "version": "1.1.4",
   "scripts": {
