@@ -1,18 +1,74 @@
 import { type ComponentProps, type ReactNode, useId } from 'react'
+import { type FieldValues, type SubmitHandler, useForm } from 'react-hook-form'
 import { type ClassValue } from 'clsx'
 import { Eye, EyeOff, HelpCircle } from 'lucide-react'
+import { toast } from 'sonner'
+import { useToggleState } from './hooks'
 import { tw } from './utils'
 
+const validateEmail = (value: string) => {
+  if (!value.endsWith('@likelion.dev'))
+    return '메일 주소는 @likelion.dev로 끝나야 합니다.'
+}
+
+const validatePassword = (value: string) => {
+  if (!/[a-z]/.test(value)) return '영문 소문자를 하나 이상 포함해야 합니다.'
+  if (!/[A-Z]/.test(value)) return '영문 대문자를 하나 이상 포함해야 합니다.'
+  if (!/[0-9]/.test(value)) return '숫자를 하나 이상 포함해야 합니다.'
+}
+
 export default function LoginForm() {
+  const [showPassword, { toggle }] = useToggleState(false)
+
+  const {
+    register,
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    reset,
+  } = useForm()
+
+  const onSubmit: SubmitHandler<FieldValues> = (formData) => {
+    if (isSubmitting) return
+
+    toast.success(JSON.stringify(formData, null, 2), {
+      action: {
+        label: '폼 초기화',
+        onClick: () => {
+          reset({ email: '', password: '' })
+        },
+      },
+    })
+
+    console.log(formData)
+  }
+
   return (
     <form
+      onSubmit={handleSubmit(onSubmit)}
       className={tw('flex flex-col gap-6 max-w-xl mx-auto p-6')}
       aria-label="로그인 폼"
       autoComplete="off"
       noValidate
     >
-      <EmailInput />
-      <PasswordInput />
+      <EmailInput
+        error={errors.email?.message as string}
+        inputProps={register('email', {
+          // required: { value: true, message: '이메일 입력은 필수입니다.' },
+          required: '이메일 입력은 필수입니다.',
+          validate: validateEmail,
+        })}
+      />
+      <PasswordInput
+        showPassword={showPassword}
+        buttonProps={{ onClick: toggle }}
+        error={errors.password?.message as string}
+        inputProps={register('password', {
+          // required: { value: true, message: '패스워드 입력은 필수입니다.' },
+          required: '패스워드 입력은 필수입니다.',
+          validate: validatePassword,
+          min: 8,
+        })}
+      />
       <SubmitButton />
     </form>
   )
