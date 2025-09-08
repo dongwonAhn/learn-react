@@ -1,9 +1,7 @@
 import { type FormEvent, useRef, version } from 'react'
 import { Send } from 'lucide-react'
 import { LearnSection } from '@/components'
-import EmailInputHOC from './components/form/email-input-hoc'
-
-// import EmailInput from '@/components/form/email-input'
+import EmailInput from './components/form/email-input'
 
 export default function App() {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -34,16 +32,11 @@ export default function App() {
       <form noValidate onSubmit={handleSubmit} className="flex gap-1">
         {/* 하위 커스텀 컴포넌트에 ref 전달하기 (React 18 실패 ❌) */}
         {/* 리액트가 말하길, React.forwardRef 고차 컴포넌트를 사용해야 해! */}
-        {/* <EmailInput ref={inputRef} /> */}
-        <EmailInputHOC ref={inputRef} />
+        {/* 하위 커스텀 컴포넌트에 ref 전달하기 (React 19 성공 ✅) */}
+        {/* 리액트 19 버전부터는 ref는 속성(prop)으로 처리됩니다. */}
+        <EmailInput ref={inputRef} />
         <button type="submit" className="button flex gap-1 items-center">
-          <Send
-            ref={(elem) => {
-              console.log(elem)
-            }}
-            size={16}
-          />{' '}
-          제출
+          <Send size={16} /> 제출
         </button>
       </form>
     </LearnSection>
