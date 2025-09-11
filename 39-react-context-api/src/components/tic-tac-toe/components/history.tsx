@@ -1,29 +1,20 @@
-import { SquaresType } from '../constants'
+import { useTicTacToe } from '../context'
 import HistoryItem from './history-item'
 import S from './history.module.css'
 
-export default function History({
-  items,
-  gameIndex,
-  onRestart,
-  makeTimeTravel,
-}: {
-  items: SquaresType[]
-  gameIndex: number
-  onRestart: () => void
-  makeTimeTravel: (travelIndex: number) => () => void
-}) {
+export default function History() {
+  const gameState = useTicTacToe()
+
   return (
     <div className={S.History}>
       <ol className={S.HistoryList}>
-        {items.map((_, index) => (
+        {gameState?.gameHistory.map((_, index) => (
           <HistoryItem
             key={index}
             index={index}
             isFirst={index === 0}
-            selectedIndex={gameIndex === index}
-            onRestart={onRestart}
-            onTimeTravel={makeTimeTravel(index)}
+            selectedIndex={gameState.gameIndex === index}
+            onTimeTravel={gameState.makeTimeTravel(index)}
           />
         ))}
       </ol>

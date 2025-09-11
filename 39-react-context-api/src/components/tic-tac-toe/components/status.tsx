@@ -1,10 +1,12 @@
-import type { PropsWithChildren } from 'react'
+import { useTicTacToe } from '../context'
 import S from './status.module.css'
 
-export default function Status({ children }: PropsWithChildren) {
+export default function Status() {
+  const gameState = useTicTacToe()
+
   return (
     <h2 className={S.Status} role="status">
-      {children}
+      {gameState?.statusMessage}
     </h2>
   )
 }
