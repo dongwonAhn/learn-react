@@ -1,3 +1,4 @@
+// import { memo } from 'react'
 import FilterForm from './components/filter-form/index'
 import FilterFormDebounce from './components/filter-form/index-debounce'
 import FilterFormThrottle from './components/filter-form/index-throttle'
@@ -26,3 +27,5 @@ export default function TodoListApp() {
     </TodoListProvider>
   )
 }
+
+// export default memo(TodoListApp)

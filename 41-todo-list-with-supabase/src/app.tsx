@@ -1,5 +1,5 @@
 import { Container, Header, LearnSection } from '@/components'
-import TodoListApp from '@/guides/todo-list-app'
+import TodoListApp from './guides/todo-list-app'
 
 export default function App() {
   return (
