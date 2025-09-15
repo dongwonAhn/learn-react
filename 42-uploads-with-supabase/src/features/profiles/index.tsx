@@ -3,7 +3,14 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
 import { useAuth } from '@/contexts/auth'
-import supabase from '@/libs/supabase'
+import {
+  getUserDataFromProfileDB,
+  removePreviousProfileImage,
+  updateProfilImage,
+  updateProfileTable,
+  updateUserMetadata,
+  uploadProfilePublicUrl,
+} from '@/libs/supabase/api/profiles'
 import { tw } from '@/utils'
 import BioTextarea from './components/bio-textarea'
 import EmailInput from './components/email-input'
@@ -16,27 +23,22 @@ import type { ProfileFormData } from './type'
  * 사용자 정보 조회, 수정 및 프로필 이미지 업로드 기능을 제공합니다.
  */
 export default function Profile() {
-  // 현재 인증된 사용자 정보 가져오기
   const { user } = useAuth()
 
-  // 폼 제출 상태 관리
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
 
-  // 이미지 업로드 관련 상태 관리
-  const [selectedFile, setSelectedFile] = useState<File | null>(null) // 사용자가 선택한 이미지 파일
-  const [profileImage, setProfileImage] = useState<string | null>(null) // 현재 프로필 이미지 URL
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [profileImage, setProfileImage] = useState<string | null>(null)
 
-  // React Hook Form을 사용한 폼 상태 관리
   const {
-    register, // 입력 필드 등록 함수
-    handleSubmit, // 폼 제출 핸들러
-    formState: { errors, isDirty }, // 폼 상태 (에러, 변경 여부)
-    reset, // 폼 초기화 함수
+    register,
+    handleSubmit,
+    formState: { errors, isDirty },
+    reset,
   } = useForm<ProfileFormData>({
-    mode: 'onChange', // 입력값 변경 시마다 유효성 검사 실행
+    mode: 'onChange',
   })
 
-  // 컴포넌트 마운트 시, 사용자 데이터 로드
   useEffect(() => {
     if (user) {
       /**
@@ -45,39 +47,13 @@ export default function Profile() {
        */
       const fetchUserData = async () => {
         try {
-          // [실습]
-          // 프로필(profiles) 테이블에서 인증된 사용자 데이터 조회
-          // - 'username', 'email', 'bio', 'profile_image' 필드 값만 가져오기
-          // - 단 하나의 행(row) 데이터만 가져오기
-          // - 오류 처리 '로그인된 사용자 정보를 가져올 수 없습니다. {에러.메시지}'
-          // const data = { username: '', email: '', bio: '', profile_image: null }
-          const { error: profileError, data: profileData } = await supabase
-            .from('profiles')
-            .select('username, email, bio, profile_image')
-            .eq('id', user.id)
-            .single()
-
-          if (profileError) {
-            const errorMessage = `로그인된 사용자 정보를 가져올 수 없습니다. ${profileError.message}`
-            toast.error(errorMessage, {
-              cancel: { label: '닫기', onClick: () => console.log('닫기') },
-            })
-          }
-
+          const profileData = await getUserDataFromProfileDB()
           if (!profileData) return
 
           const { username, email, bio, profile_image } = profileData
 
-          // 폼 필드 초기값 설정
-          if (email) {
-            reset({
-              username,
-              email,
-              bio,
-            })
-          }
+          if (email) reset({ username, email, bio })
 
-          // 프로필 이미지 URL이 있으면 상태 업데이트
           if (profile_image) {
             setProfileImage(profile_image)
           }
@@ -86,7 +62,6 @@ export default function Profile() {
         }
       }
 
-      // 사용자 데이터 로드 실행
       fetchUserData()
     }
   }, [reset, user])
@@ -101,110 +76,37 @@ export default function Profile() {
     setIsSubmitting(true)
 
     try {
-      // [실습]
-      // 사용자(user) 메타데이터 업데이트
-      // - 폼 데이터 값으로 'email', 'data.username', 'data.bio' 업데이트
-      // - 오류 처리 '프로필 업데이트 오류 발생! {오류.메시지}' -> 오류 발생 시, 함수 종료
-      const { error: authUpdateError } = await supabase.auth.updateUser({
-        email: formData.email,
-        data: {
-          username: formData.username,
-          bio: formData.bio,
-        },
-      })
+      const { email, username, bio } = formData
+      await updateUserMetadata(email, username, bio)
 
-      if (authUpdateError) {
-        const errorMessage = `프로필 업데이트 오류 발생! ${authUpdateError.message}`
-        toast.error(errorMessage)
-        throw new Error(errorMessage)
-      }
+      const updatedProfileData = await updateProfileTable(email, username, bio)
 
-      // [실습]
-      // 프로필(profiles) 테이블 업데이트
-      // - 폼 데이터로 'username', 'email', 'bio', 'updated_at' 업데이트
-      // - 인증된 사용자의 프로필 행을 찾아 업데이트
-      // - 오류 처리 '프로필 테이블 업데이트 오류 발생! {오류.메시지}' -> 오류 발생 시, 함수 종료
-      const { error: profileUpdateError, data: updatedProfileData } =
-        await supabase
-          .from('profiles')
-          // RLS 보안 정책 없어요! (수정 불가능 오류)
-          .update({
-            username: formData.username,
-            email: formData.email,
-            bio: formData.bio,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id)
-          .select('username, email, bio')
-          .single()
-
-      if (profileUpdateError) {
-        const errorMessage = `프로필 테이블 업데이트 오류 발생! ${profileUpdateError.message}`
-        toast.error(errorMessage)
-        throw new Error(errorMessage)
-      }
-
-      // 폼 데이터를 응답받은 profiles 테이블의 데이터로 재설정
-      const { username, email, bio } = updatedProfileData
-
-      if (email) {
+      if (updatedProfileData.email) {
         reset({
-          username,
-          email,
-          bio,
+          username: updatedProfileData.username,
+          email: updatedProfileData.email,
+          bio: updatedProfileData.bio,
         })
       }
 
-      // [실습]
-      // 선택한 프로필 이미지 파일 업로드
-      // - selectedFile 또는 user 정보 확인
-      // - 파일 확장자(extension) 추출
-      // - 고유 파일명 생성 (UUID 또는 crypto 활용)
-      // - 파일 경로 지정 (`{사용자ID}/{파일명}`)
-      // - Supabase 스토리지 'profiles' 버킷에 파일 업로드
-      // - 업로드된 파일 공개 URL 가져오기
-      // - 프로필(profiles) 테이블의 'profile_image' 필드 업데이트
-      // - 성공 메시지 표시 및 상태 업데이트
       if (selectedFile) {
         const uploadProfileImage = async () => {
           if (!selectedFile || !user) return
 
           try {
-            // 이전 프로필 이미지가 있으면 삭제
-            if (profileImage) {
-              const oldFileName = profileImage.split('/').pop()
-              if (oldFileName) {
-                const oldFilePath = `${user.id}/${oldFileName}`
-                // [실습]
-                // supabase 스토리지 'profiles' 버킷에서 이전 프로필 이미지 삭제
-                console.log(oldFilePath)
-              }
-            }
+            await removePreviousProfileImage(profileImage)
 
-            // 파일 확장자 추출
             const fileExt = selectedFile.name.split('.').pop()
-
-            // 고유 파일명 생성
             const fileName = `${uuidv4()}.${fileExt}`
             const filePath = `${user.id}/${fileName}`
 
-            // [실습]
-            // supabase 스토리지 'profiles' 버킷에 파일 경로로 선택된 파일 업로드
-            // - 오류 처리 '이미지 업로드 실패! {오류.메시지}'
-            console.log(filePath)
+            const publicUrl = await uploadProfilePublicUrl(
+              filePath,
+              selectedFile
+            )
 
-            // [실습]
-            // 업로드된 파일의 공개 URL 가져오기
-            // - supabase 스토리지 'profiles' 버킷에서 파일 경로로 공개된 URL 가져오기
-            const data = { publicUrl: '' }
-            const { publicUrl } = data
+            await updateProfilImage(publicUrl)
 
-            // [실습]
-            // 프로필(profiles) 테이블의 이미지 URL 업데이트
-            // - 인증된 사용자 행에 profile_image 필드에 업데이트
-            // - 오류 처리 '프로필 이미지 URL 저장 실패! {오류.메시지}' -> 오류 발생 시, 함수 종료
-
-            // 상태 업데이트
             setProfileImage(publicUrl)
             setSelectedFile(null)
             toast.success('프로필 이미지가 업로드되었습니다.')
@@ -217,7 +119,6 @@ export default function Profile() {
         await uploadProfileImage()
       }
 
-      // 폼 필드 업데이트 및 성공 메시지 표시
       toast.success('프로필이 성공적으로 업데이트되었습니다!')
     } catch (error) {
       toast.error('프로필 업데이트 중 오류가 발생했습니다.')
@@ -227,7 +128,6 @@ export default function Profile() {
     }
   }
 
-  // 사용자가 로그인되어 있지 않은 경우 안내 메시지 표시
   if (!user) {
     return (
       <section>
@@ -237,7 +137,6 @@ export default function Profile() {
     )
   }
 
-  // 프로필 폼 UI 렌더링
   return (
     <section aria-labelledby="profile-headline">
       <div className="max-w-lg mx-auto bg-white rounded-lg p-6 mt-0">
