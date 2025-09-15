@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
 import { useAuth } from '@/contexts/auth'
+import supabase from '@/libs/supabase'
 import { tw } from '@/utils'
 import BioTextarea from './components/bio-textarea'
 import EmailInput from './components/email-input'
@@ -46,11 +47,26 @@ export default function Profile() {
         try {
           // [실습]
           // 프로필(profiles) 테이블에서 인증된 사용자 데이터 조회
-          // - 'username', 'email', 'bio' 필드 값만 가져오기
+          // - 'username', 'email', 'bio', 'profile_image' 필드 값만 가져오기
           // - 단 하나의 행(row) 데이터만 가져오기
           // - 오류 처리 '로그인된 사용자 정보를 가져올 수 없습니다. {에러.메시지}'
-          const data = { username: '', email: '', bio: '', profile_image: null }
-          const { username, email, bio, profile_image } = data
+          // const data = { username: '', email: '', bio: '', profile_image: null }
+          const { error: profileError, data: profileData } = await supabase
+            .from('profiles')
+            .select('username, email, bio, profile_image')
+            .eq('id', user.id)
+            .single()
+
+          if (profileError) {
+            const errorMessage = `로그인된 사용자 정보를 가져올 수 없습니다. ${profileError.message}`
+            toast.error(errorMessage, {
+              cancel: { label: '닫기', onClick: () => console.log('닫기') },
+            })
+          }
+
+          if (!profileData) return
+
+          const { username, email, bio, profile_image } = profileData
 
           // 폼 필드 초기값 설정
           if (email) {
@@ -79,7 +95,7 @@ export default function Profile() {
    * 폼 제출 시 실행되는 함수
    * 사용자 프로필 정보와 이미지를 업데이트합니다.
    */
-  const onSubmit = async (_formData: ProfileFormData) => {
+  const onSubmit = async (formData: ProfileFormData) => {
     if (isSubmitting || !user) return
 
     setIsSubmitting(true)
@@ -89,12 +105,40 @@ export default function Profile() {
       // 사용자(user) 메타데이터 업데이트
       // - 폼 데이터 값으로 'email', 'data.username', 'data.bio' 업데이트
       // - 오류 처리 '프로필 업데이트 오류 발생! {오류.메시지}' -> 오류 발생 시, 함수 종료
+      const { error: authUpdateError } = await supabase.auth.updateUser({
+        email: formData.email,
+        data: {
+          username: formData.username,
+          bio: formData.bio,
+        },
+      })
+
+      if (authUpdateError) {
+        const errorMessage = `프로필 업데이트 오류 발생! ${authUpdateError.message}`
+        toast.error(errorMessage)
+        throw new Error(errorMessage)
+      }
 
       // [실습]
       // 프로필(profiles) 테이블 업데이트
       // - 폼 데이터로 'username', 'email', 'bio', 'updated_at' 업데이트
       // - 인증된 사용자의 프로필 행을 찾아 업데이트
       // - 오류 처리 '프로필 테이블 업데이트 오류 발생! {오류.메시지}' -> 오류 발생 시, 함수 종료
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({
+          username: formData.username,
+          email: formData.email,
+          bio: formData.bio,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id)
+
+      if (profileUpdateError) {
+        const errorMessage = `프로필 테이블 업데이트 오류 발생! ${profileUpdateError.message}`
+        toast.error(errorMessage)
+        throw new Error(errorMessage)
+      }
 
       // [실습]
       // 선택한 프로필 이미지 파일 업로드
