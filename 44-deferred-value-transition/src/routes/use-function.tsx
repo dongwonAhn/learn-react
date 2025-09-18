@@ -1,6 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
+// import { useAuth } from '@/contexts/auth'
+import { Users } from '@/features/use-api'
 
 function Page() {
+  // const { isAuthenticated } = useAuth()
+  // console.log(isAuthenticated)
+
   return (
     <>
       <title>use 함수</title>
@@ -15,7 +20,7 @@ function Page() {
           곳까지 데이터를 전달하는 작업을 단순화할 수 있습니다.
         </p>
 
-        {/* <Users /> */}
+        <Users />
       </section>
     </>
   )
