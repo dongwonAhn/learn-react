@@ -1,4 +1,9 @@
+import type { Metadata } from 'next'
 import { Section } from '@/components'
+
+export const metadata: Metadata = {
+  title: '프로필',
+}
 
 export default function DashboardProfile() {
   return (
